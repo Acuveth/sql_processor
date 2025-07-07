@@ -64,27 +64,35 @@ class ProductNormalizer:
     
     @staticmethod
     def normalize_lidl_product(data: Dict, store_name: str = "lidl") -> ProductData:
-        """Normalize Lidl product JSON"""
+        """Normalize Lidl product JSON - FIXED VERSION"""
         try:
             # Extract basic product info
             product_id = str(data.get("product_id", data.get("item_id", "")))
-            current_price = float(data.get("price", 0))
-            old_price = float(data.get("old_price", 0))
             
-            # Calculate discount
+            # FIXED: Handle None values properly
+            price_raw = data.get("price")
+            old_price_raw = data.get("old_price")
+            
+            # Convert to float, handling None values
+            current_price = float(price_raw) if price_raw is not None else 0.0
+            old_price = float(old_price_raw) if old_price_raw is not None else 0.0
+            
+            # Calculate discount - FIXED: Now safe from None comparisons
             discount_percentage = 0.0
             has_discount = False
             regular_price = None
             
-            if old_price > 0 and current_price < old_price:
+            if old_price > 0 and current_price > 0 and current_price < old_price:
                 discount_percentage = ((old_price - current_price) / old_price) * 100
                 has_discount = True
                 regular_price = old_price
-            elif data.get("discount_percentage", 0) > 0:
-                discount_percentage = float(data.get("discount_percentage", 0))
-                has_discount = True
-                if current_price > 0 and discount_percentage > 0:
-                    regular_price = current_price / (1 - discount_percentage / 100)
+            elif data.get("discount_percentage"):
+                discount_percentage_raw = data.get("discount_percentage")
+                if discount_percentage_raw is not None:
+                    discount_percentage = float(discount_percentage_raw)
+                    has_discount = True
+                    if current_price > 0 and discount_percentage > 0:
+                        regular_price = current_price / (1 - discount_percentage / 100)
             
             # Extract categories from breadcrumbs and world_of_needs
             category_breadcrumbs = data.get("category_breadcrumbs", [])
@@ -92,13 +100,17 @@ class ProductNormalizer:
             category_level_1 = ""
             category_level_2 = ""
             
-            if category_breadcrumbs:
+            # FIXED: Handle None breadcrumbs
+            if category_breadcrumbs and isinstance(category_breadcrumbs, list):
                 for i, breadcrumb in enumerate(category_breadcrumbs):
-                    if i == 0:
-                        category_level_1 = breadcrumb.get("name", "")
-                    elif i == 1:
-                        category_level_2 = breadcrumb.get("name", "")
-                    categories_data.append(breadcrumb.get("name", ""))
+                    if breadcrumb and isinstance(breadcrumb, dict):
+                        breadcrumb_name = breadcrumb.get("name", "")
+                        if breadcrumb_name:
+                            if i == 0:
+                                category_level_1 = breadcrumb_name
+                            elif i == 1:
+                                category_level_2 = breadcrumb_name
+                            categories_data.append(breadcrumb_name)
             
             # Add world_of_needs_name as primary category
             won_name = data.get("world_of_needs_name", "")
@@ -107,27 +119,70 @@ class ProductNormalizer:
                 if not category_level_1:
                     category_level_1 = won_name
             
-            # Extract image URL
+            # Extract image URL - FIXED: Handle None values
             main_image = data.get("main_image", "")
             image_list = data.get("image_list", [])
-            image_url = main_image if main_image else (image_list[0] if image_list else "")
+            image_url = ""
+            
+            if main_image:
+                image_url = main_image
+            elif image_list and isinstance(image_list, list) and len(image_list) > 0:
+                image_url = image_list[0] if image_list[0] else ""
+            
+            # FIXED: Handle None values in all fields
+            product_name = data.get("name", "")
+            if product_name is None:
+                product_name = ""
+                
+            product_title = data.get("full_title", data.get("title", ""))
+            if product_title is None:
+                product_title = ""
+                
+            product_description = data.get("more_details", "")
+            if product_description is None:
+                product_description = ""
+                
+            product_code = data.get("code", "")
+            if product_code is None:
+                product_code = ""
+                
+            # Handle EAN codes
+            ians = data.get("ians", [])
+            ean_code = ""
+            if ians and isinstance(ians, list) and len(ians) > 0:
+                ean_code = str(ians[0]) if ians[0] is not None else ""
+            
+            # Handle URLs
+            product_url = data.get("canonical_url", data.get("url", ""))
+            if product_url is None:
+                product_url = ""
+                
+            # Handle ERP number
+            erp_number = data.get("erp_number", "")
+            if erp_number is None:
+                erp_number = ""
+                
+            # Handle currency
+            currency_code = data.get("currency_code", "EUR")
+            if currency_code is None:
+                currency_code = "EUR"
             
             # Create normalized product
             return ProductData(
                 product_id=product_id,
-                product_code=data.get("code", ""),
-                ean_code=str(data.get("ians", [""])[0]) if data.get("ians") else "",
-                erp_number=data.get("erp_number", ""),
-                product_name=data.get("name", ""),
-                product_title=data.get("full_title", data.get("title", "")),
+                product_code=product_code,
+                ean_code=ean_code,
+                erp_number=erp_number,
+                product_name=product_name,
+                product_title=product_title,
                 brand_name="",  # Lidl products often don't have separate brand
-                product_description=data.get("more_details", ""),
+                product_description=product_description,
                 current_price=current_price,
                 regular_price=regular_price,
                 discount_percentage=discount_percentage if discount_percentage > 0 else None,
                 has_discount=has_discount,
-                currency_code=data.get("currency_code", "EUR"),
-                product_url=data.get("canonical_url", data.get("url", "")),
+                currency_code=currency_code,
+                product_url=product_url,
                 image_url=image_url,
                 store_category=won_name,
                 category_level_1=category_level_1,
@@ -141,6 +196,7 @@ class ProductNormalizer:
             
         except Exception as e:
             logger.error(f"Error normalizing Lidl product: {e}")
+            logger.error(f"Product data: {data}")
             return None
 
     @staticmethod

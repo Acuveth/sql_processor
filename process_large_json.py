@@ -152,6 +152,9 @@ class LargeJSONProcessor:
                     self.stats['failed'] += 1
                     logger.warning(f"    ❌ Failed to process: {product_name}")
                 
+                # NEW: Log the problematic product data for debugging
+                logger.debug(f"    🔍 Product data: {json.dumps(product, indent=2)}")
+
                 self.stats['processed'] += 1
                 
                 # Progress indicator
@@ -165,6 +168,7 @@ class LargeJSONProcessor:
             except Exception as e:
                 self.stats['failed'] += 1
                 logger.error(f"    💥 Exception processing product {i+1}: {e}")
+                logger.error(f"    🔍 Product data: {json.dumps(product, indent=2)}")
                 continue
         
         return results
