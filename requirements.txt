@@ -1,0 +1,35 @@
+# Product AI Enhancement System - Requirements
+# Install with: pip install -r requirements.txt
+
+# Google Gemini AI
+google-generativeai>=0.3.0
+
+# Database connectivity
+mysql-connector-python>=8.0.33
+
+# JSON handling and data processing
+requests>=2.31.0
+
+# Environment variable management
+python-dotenv>=1.0.0
+
+# Logging and monitoring
+structlog>=23.1.0
+
+# Data validation
+pydantic>=2.0.0
+
+# Optional: Progress bars for batch processing
+tqdm>=4.65.0
+
+# Optional: Configuration management
+pyyaml>=6.0.0
+
+# Optional: Advanced JSON handling
+ujson>=5.8.0
+
+# Development dependencies (optional)
+pytest>=7.4.0
+pytest-cov>=4.1.0
+black>=23.7.0
+flake8>=6.0.0
